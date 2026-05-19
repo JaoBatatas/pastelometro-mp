@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pastelômetro CCT - Distribuição Normal</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 { color: #ff9800; margin-bottom: 5px; }
+        p.subtitle { color: #888; margin-top: 0; font-size: 0.9em; }
+        
+        .btn-pastel {
+            background-color: #ff9800;
+            color: #121212;
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.5em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
+            transition: transform 0.2s, background-color 0.2s;
+            margin: 20px 0;
+            width: 100%;
+        }
+        .btn-pastel:hover { background-color: #e65100; }
+        .btn-pastel:active { transform: scale(0.98); }
+        
+        .stats-box {
+            background-color: #1e1e1e;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+        .stats-grid {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+        }
+        .stat-val { font-size: 1.2em; font-weight: bold; color: #ffb74d; }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #333;
+        }
+        #loading { color: #ff9800; display: none; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🥐 Pastelômetro Normal</h1>
+    <p class="subtitle">Análise Preditiva de Salgados da Cantina</p>
+
+    <button class="btn-pastel" onclick="registrarPastel()">Pastel Pronto! 🔔</button>
+    <div id="loading">A atualizar modelo estatístico...</div>
+
+    <div class="stats-box">
+        <div class="stats-grid">
+            <div>
+                <div>Média (<span style="font-family: serif;">μ</span>)</div>
+                <div id="val-mu" class="stat-val">--:--</div>
+            </div>
+            <div>
+                <div>Desvio Padrão (<span style="font-family: serif;">σ</span>)</div>
+                <div id="val-sigma" class="stat-val">- min</div>
+            </div>
+            <div>
+                <div>Amostras (n)</div>
+                <div id="val-total" class="stat-val">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="gaussChart"></canvas>
+    </div>
+</div>
+
+<script>
+    // ⚠️ SUBSTITUA PELO URL COPIADO DO SEU GOOGLE APPS SCRIPT
+    const API_URL = "SEU_URL_DO_APPS_SCRIPT_AQUI";
+    
+    let chart;
+
+    // Converte minutos acumulados do dia de volta para o formato HH:MM
+    function minutosParaHora(minutos) {
+        if (!minutos) return "--:--";
+        let h = Math.floor(minutos / 60);
+        let m = minutos % 60;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+
+    // Função matemática da Densidade de Probabilidade da Distribuição Normal
+    function funcaoNormal(x, mu, sigma) {
+        let expoente = -Math.pow(x - mu, 2) / (2 * Math.pow(sigma, 2));
+        return (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(expoente);
+    }
+
+    // Gera os dados para plotar a curva de Gauss em tempo real
+    function gerarPontosCurva(mu, sigma) {
+        let pontos = [];
+        if (sigma === 0) sigma = 1; // Prevenção de divisão por zero
+        
+        // Plota de -3 desvios padrões até +3 desvios padrões
+        let inicio = mu - (3 * sigma);
+        let fim = mu + (3 * sigma);
+        let passo = (fim - inicio) / 100;
+
+        for (let x = inicio; x <= fim; x += passo) {
+            pontos.push({
+                x: Math.round(x),
+                y: funcaoNormal(x, mu, sigma)
+            });
+        }
+        return pontos;
+    }
+
+    // Atualiza a interface e reconstrói o gráfico
+    function atualizarDashboard(data) {
+        document.getElementById('val-mu').innerText = `${minutosParaHora(data.mu)} (${data.mu})`;
+        document.getElementById('val-sigma').innerText = `${data.sigma} min`;
+        document.getElementById('val-total').innerText = data.total;
+
+        const pontosCurva = gerarPontosCurva(data.mu, data.sigma);
+
+        if (chart) chart.destroy();
+
+        const ctx = document.getElementById('gaussChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'f(x) - Probabilidade do Pastel',
+                    data: pontosCurva,
+                    borderColor: '#ff9800',
+                    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: { display: true, text: 'Tempo (Minutos do Dia)', color: '#aaa' },
+                        ticks: {
+                            color: '#888',
+                            callback: function(value) { return minutosParaHora(value); }
+                        },
+                        grid: { color: '#333' }
+                    },
+                    y: {
+                        display: false // O formato da curva importa mais que os valores brutos de Y
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    // Função para carregar os dados iniciais ao abrir a página
+    async function carregarDados() {
+        try {
+            let res = await fetch(`${API_URL}?action=consultar`);
+            let dados = await res.json();
+            atualizarDashboard(dados);
+        } catch (err) {
+            console.error("Erro ao buscar dados:", err);
+        }
+    }
+
+    // Função disparada pelo clique do Botão
+    async function registrarPastel() {
+        const btn = document.querySelector('.btn-pastel');
+        const loading = document.getElementById('loading');
+        
+        btn.disabled = true;
+        loading.style.display = 'block';
+
+        try {
+            let res = await fetch(`${API_URL}?action=registrar`);
+            let dados = await res.json();
+            atualizarDashboard(dados);
+            alert(`Registrado com sucesso! Novo pico teórico (μ): ${minutosParaHora(dados.mu)}`);
+        } catch (err) {
+            alert("Erro ao salvar o horário. Verifica a ligação.");
+        } finally {
+            btn.disabled = false;
+            loading.style.display = 'none';
+        }
+    }
+
+    // Inicializa ao carregar o site
+    window.onload = carregarDados;
+</script>
+
+</body>
+</html>
