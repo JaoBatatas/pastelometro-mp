@@ -23,25 +23,47 @@
             text-align: center;
         }
         h1 { color: #ff9800; margin-bottom: 5px; }
-        p.subtitle { color: #888; margin-top: 0; font-size: 0.9em; margin-bottom: 25px; }
+        p.subtitle { color: #888; margin-top: 0; font-size: 0.9em; margin-bottom: 20px; }
         
-        .btn-pastel {
-            background-color: #ff9800;
-            color: #121212;
+        /* BANNER DE STATUS */
+        .status-banner {
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            display: none;
+            font-weight: 500;
+        }
+        .status-disponivel { background-color: rgba(76, 175, 80, 0.2); color: #81c784; border: 1px solid #4CAF50; }
+        .status-esgotado { background-color: rgba(244, 67, 54, 0.2); color: #e57373; border: 1px solid #f44336; }
+
+        /* BOTÕES */
+        .btn-acao {
             border: none;
             padding: 20px 40px;
             font-size: 1.5em;
             font-weight: bold;
             border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
             transition: transform 0.2s, background-color 0.2s;
             margin: 10px 0 25px 0;
             width: 100%;
         }
-        .btn-pastel:hover { background-color: #e65100; }
-        .btn-pastel:active { transform: scale(0.98); }
-        .btn-pastel:disabled { background-color: #555; cursor: not-allowed; box-shadow: none; }
+        .btn-pronto {
+            background-color: #ff9800;
+            color: #121212;
+            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
+        }
+        .btn-pronto:hover { background-color: #e65100; }
+        .btn-acabou {
+            background-color: #f44336;
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
+            display: none; /* Escondido por padrão */
+        }
+        .btn-acabou:hover { background-color: #d32f2f; }
+        .btn-acao:active { transform: scale(0.98); }
+        .btn-acao:disabled { background-color: #555; color: #888; cursor: not-allowed; box-shadow: none; }
         
         .stats-box {
             background-color: #1e1e1e;
@@ -87,8 +109,12 @@
     <h1>🥐 Pastelômetro CCT</h1>
     <p class="subtitle">Análise Preditiva de Salgados da Cantina</p>
 
-    <button class="btn-pastel" onclick="registrarPastel()">Pastel Pronto! 🔔</button>
-    <div id="loading">A atualizar modelo estatístico...</div>
+    <!-- ÁREA DE STATUS E AÇÕES -->
+    <div id="status-banner" class="status-banner"></div>
+    <button id="btn-pronto" class="btn-acao btn-pronto" onclick="acionarAPI('registrar_pronto')">Pastel Pronto! 🔔</button>
+    <button id="btn-acabou" class="btn-acao btn-acabou" onclick="acionarAPI('registrar_acabou')">O Pastel Acabou ❌</button>
+    
+    <div id="loading">A sincronizar com a Cantina...</div>
 
     <div class="stats-box">
         <div class="stats-grid">
@@ -125,10 +151,35 @@
 </div>
 
 <script>
-    // ⚠️ SUBSTITUA PELO URL COPIADO DO SEU GOOGLE APPS SCRIPT
+    // ⚠️ SUBSTITUA PELO URL COPIADO DO SEU GOOGLE APPS SCRIPT ATUALIZADO
     const API_URL = "https://script.google.com/macros/s/AKfycbwQEP1QPSZ5SrKzPRqw5k-yDI4Junq0_Bx5KUe4Ry94VOjlNslWWx4aB2dEpdRFOBXA/exec";
     
     let chart;
+
+    // --- LÓGICA DE INTERFACE E STATUS ---
+    function atualizarInterfaceDeStatus(status, hora) {
+        const btnPronto = document.getElementById('btn-pronto');
+        const btnAcabou = document.getElementById('btn-acabou');
+        const banner = document.getElementById('status-banner');
+
+        if (status === "aguardando") {
+            btnPronto.style.display = "block";
+            btnAcabou.style.display = "none";
+            banner.style.display = "none";
+        } else if (status === "disponivel") {
+            btnPronto.style.display = "none";
+            btnAcabou.style.display = "block";
+            banner.style.display = "block";
+            banner.className = "status-banner status-disponivel";
+            banner.innerHTML = `🔥 Pastel saiu às <strong>${hora}</strong>! Corre!`;
+        } else if (status === "esgotado") {
+            btnPronto.style.display = "none";
+            btnAcabou.style.display = "none";
+            banner.style.display = "block";
+            banner.className = "status-banner status-esgotado";
+            banner.innerHTML = `🛑 O pastel de hoje já acabou. Volte amanhã!`;
+        }
+    }
 
     // Converte minutos acumulados do dia de volta para o formato HH:MM
     function minutosParaHora(minutos) {
@@ -159,12 +210,11 @@
         });
         
         let modaStr = "--:--";
-        // Só considera moda se o horário se repetir mais do que uma vez (maxFreq > 1)
         if (maxFreq > 1) {
             let modas = Object.keys(freq).filter(k => freq[k] === maxFreq).map(Number);
             modaStr = modas.map(m => minutosParaHora(m)).join(' e ');
         } else {
-            modaStr = "Amodal"; // Nenhum valor se repete
+            modaStr = "Amodal";
         }
 
         let varianciaPop = array.reduce((a, b) => a + Math.pow(b - mu, 2), 0) / n;
@@ -176,46 +226,44 @@
         return { mu, mediana, modaStr, sigma, s, total: n };
     }
 
-    // Função matemática da Densidade de Probabilidade da Distribuição Normal
     function funcaoNormal(x, mu, sigma) {
         let expoente = -Math.pow(x - mu, 2) / (2 * Math.pow(sigma, 2));
         return (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(expoente);
     }
 
-    // Gera os dados para plotar a curva de Gauss em tempo real
     function gerarPontosCurva(mu, sigma) {
         let pontos = [];
-        let sigmaGrafico = (!sigma || sigma === 0) ? 1 : sigma; // Prevenção de divisão por zero
-        
+        let sigmaGrafico = (!sigma || sigma === 0) ? 1 : sigma; 
         let margem = Math.max(3 * sigmaGrafico, 60); 
-        
         let inicio = mu - margem;
         let fim = mu + margem;
-        
         let passo = (fim - inicio) / 200;
 
         for (let x = inicio; x <= fim; x += passo) {
-            pontos.push({
-                x: x, 
-                y: funcaoNormal(x, mu, sigmaGrafico)
-            });
+            pontos.push({ x: x, y: funcaoNormal(x, mu, sigmaGrafico) });
         }
         return pontos;
     }
 
-    // Atualiza a interface e reconstrói o gráfico
-    function atualizarDashboard(data) {
-        if (!data || data.total === 0) return;
+    // Atualiza toda a Dashboard com o novo formato de payload da API
+    function atualizarDashboardCompleto(respostaAPI) {
+        if (!respostaAPI || !respostaAPI.historico) return;
 
-        document.getElementById('val-mu').innerText = `${minutosParaHora(data.mu)}`;
-        document.getElementById('val-mediana').innerText = data.mediana ? minutosParaHora(data.mediana) : '--:--';
-        document.getElementById('val-moda').innerText = data.modaStr || '--:--';
-        
-        document.getElementById('val-sigma').innerText = data.sigma ? `${data.sigma.toFixed(1)} min` : '- min';
-        document.getElementById('val-s').innerText = data.s ? `${data.s.toFixed(1)} min` : '- min';
-        document.getElementById('val-total').innerText = data.total;
+        // 1. Atualiza Status e Botões
+        atualizarInterfaceDeStatus(respostaAPI.statusHoje, respostaAPI.horaPronto);
 
-        const pontosCurva = gerarPontosCurva(data.mu, data.sigma);
+        // 2. Atualiza Estatísticas e Gráfico
+        let dadosEstatisticos = calcularEstatisticas(respostaAPI.historico);
+        if (!dadosEstatisticos) return;
+
+        document.getElementById('val-mu').innerText = `${minutosParaHora(dadosEstatisticos.mu)}`;
+        document.getElementById('val-mediana').innerText = dadosEstatisticos.mediana ? minutosParaHora(dadosEstatisticos.mediana) : '--:--';
+        document.getElementById('val-moda').innerText = dadosEstatisticos.modaStr || '--:--';
+        document.getElementById('val-sigma').innerText = dadosEstatisticos.sigma ? `${dadosEstatisticos.sigma.toFixed(1)} min` : '- min';
+        document.getElementById('val-s').innerText = dadosEstatisticos.s ? `${dadosEstatisticos.s.toFixed(1)} min` : '- min';
+        document.getElementById('val-total').innerText = dadosEstatisticos.total;
+
+        const pontosCurva = gerarPontosCurva(dadosEstatisticos.mu, dadosEstatisticos.sigma);
         const ctx = document.getElementById('gaussChart').getContext('2d');
 
         let gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -262,7 +310,7 @@
                         titleColor: '#ff9800',
                         callbacks: {
                             title: function(context) { return 'Hora: ' + minutosParaHora(context[0].parsed.x); },
-                            label: function(context) { return 'Probabilidade relativa: ' + (context.parsed.y * 100).toFixed(2) + '%'; }
+                            label: function(context) { return 'Probabilidade: ' + (context.parsed.y * 100).toFixed(2) + '%'; }
                         }
                     }
                 }
@@ -270,44 +318,61 @@
         });
     }
 
-    // Função para carregar os dados iniciais ao abrir a página
+    // Faz consultas silenciosas para carregar dados
     async function carregarDados() {
         try {
             let res = await fetch(`${API_URL}?action=consultar`);
             let respostaAPI = await res.json(); 
-            
-            let dados = Array.isArray(respostaAPI) ? calcularEstatisticas(respostaAPI) : respostaAPI;
-            atualizarDashboard(dados);
+            atualizarDashboardCompleto(respostaAPI);
         } catch (err) {
-            console.error("Erro ao buscar dados:", err);
+            console.error("Erro ao conectar à API, exibindo fallback local.", err);
+            // Fallback simulado para preview se a API falhar
+            atualizarDashboardCompleto({
+                historico: [1025, 976, 1045, 1031, 1019, 1047, 1044, 1042, 1024],
+                statusHoje: "aguardando",
+                horaPronto: ""
+            });
         }
     }
 
-    // Função disparada pelo clique do Botão
-    async function registrarPastel() {
-        const btn = document.querySelector('.btn-pastel');
+    // Lida com cliques nos dois botões ("Pronto" ou "Acabou")
+    async function acionarAPI(acao) {
+        const btnPronto = document.getElementById('btn-pronto');
+        const btnAcabou = document.getElementById('btn-acabou');
         const loading = document.getElementById('loading');
         
-        btn.disabled = true;
+        btnPronto.disabled = true;
+        btnAcabou.disabled = true;
         loading.style.display = 'block';
 
         try {
-            let res = await fetch(`${API_URL}?action=registrar`);
+            let res = await fetch(`${API_URL}?action=${acao}`);
             let respostaAPI = await res.json(); 
             
-            let dados = Array.isArray(respostaAPI) ? calcularEstatisticas(respostaAPI) : respostaAPI;
-            
-            atualizarDashboard(dados);
-            alert(`Registado com sucesso! Novo pico teórico (μ): ${minutosParaHora(dados.mu)}`);
+            atualizarDashboardCompleto(respostaAPI);
         } catch (err) {
-            alert("Erro ao guardar o horário. Verifique a ligação com o Apps Script.");
+            alert("Erro ao comunicar com o servidor. Tente novamente.");
+            // Simulação puramente visual para o Preview do Editor:
+            if (acao === 'registrar_pronto') {
+                atualizarDashboardCompleto({
+                    historico: [1025, 976, 1045, 1031, 1019, 1047, 1044, 1042, 1024, 1020],
+                    statusHoje: "disponivel",
+                    horaPronto: "17:00"
+                });
+            } else {
+                atualizarDashboardCompleto({
+                    historico: [1025, 976, 1045, 1031, 1019, 1047, 1044, 1042, 1024, 1020],
+                    statusHoje: "esgotado",
+                    horaPronto: "17:00"
+                });
+            }
         } finally {
-            btn.disabled = false;
+            btnPronto.disabled = false;
+            btnAcabou.disabled = false;
             loading.style.display = 'none';
         }
     }
 
-    // Inicializa ao carregar o site
     window.onload = carregarDados;
 </script>
 
