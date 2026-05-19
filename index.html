@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -59,12 +59,13 @@
             background-color: #f44336;
             color: #ffffff;
             box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
-            display: none; /* Escondido por padrão */
+            display: none; 
         }
         .btn-acabou:hover { background-color: #d32f2f; }
         .btn-acao:active { transform: scale(0.98); }
         .btn-acao:disabled { background-color: #555; color: #888; cursor: not-allowed; box-shadow: none; }
         
+        /* CAIXAS DE ESTATÍSTICA */
         .stats-box {
             background-color: #1e1e1e;
             padding: 20px;
@@ -73,22 +74,28 @@
             border: 1px solid #333;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
+        .stats-box.acabou-box { border-color: #4a211f; }
+        .stats-box h3 { margin-top: 0; margin-bottom: 15px; font-size: 1.1em; text-align: left;}
+        
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
         }
         .stat-card {
             background-color: #252525;
-            padding: 15px 10px;
+            padding: 10px;
             border-radius: 8px;
             border: 1px solid #333;
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
-        .stat-label { color: #aaa; font-size: 0.85em; margin-bottom: 5px; }
-        .stat-val { font-size: 1.3em; font-weight: bold; color: #ffb74d; }
+        .stat-label { color: #aaa; font-size: 0.8em; margin-bottom: 5px; }
+        .stat-val { font-size: 1.2em; font-weight: bold; color: #ffb74d; }
+        
+        /* Valores específicos da caixa "Acabou" */
+        .acabou-box .stat-val { color: #e57373; }
         
         .chart-container {
             position: relative;
@@ -107,40 +114,65 @@
 
 <div class="container">
     <h1>🥐 Pastelômetro CCT</h1>
-    <p class="subtitle">Análise Preditiva de Salgados da Cantina</p>
+    <p class="subtitle">Previsão e Ciclo de Vida dos Salgados</p>
 
     <!-- ÁREA DE STATUS E AÇÕES -->
     <div id="status-banner" class="status-banner"></div>
     <button id="btn-pronto" class="btn-acao btn-pronto" onclick="acionarAPI('registrar_pronto')">Pastel Pronto! 🔔</button>
     <button id="btn-acabou" class="btn-acao btn-acabou" onclick="acionarAPI('registrar_acabou')">O Pastel Acabou ❌</button>
     
-    <div id="loading">A sincronizar com a Cantina...</div>
+    <div id="loading">Sincronizando com a Cantina...</div>
 
-    <div class="stats-box">
+    <!-- ESTATÍSTICAS: PRONTO -->
+    <div class="stats-box" id="panel-pronto">
+        <h3 style="color: #ffb74d;">🔔 Probabilidade: Ficar Pronto</h3>
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">Média (<span style="font-family: serif; font-size: 1.2em;">μ</span>)</div>
-                <div id="val-mu" class="stat-val">--:--</div>
+                <div class="stat-label">Média (<span style="font-family: serif;">μ</span>)</div>
+                <div id="p-mu" class="stat-val">--:--</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Mediana</div>
-                <div id="val-mediana" class="stat-val">--:--</div>
+                <div id="p-mediana" class="stat-val">--:--</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Moda</div>
-                <div id="val-moda" class="stat-val">--:--</div>
+                <div id="p-moda" class="stat-val">--:--</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">DP Pop. (<span style="font-family: serif; font-size: 1.2em;">σ</span>)</div>
-                <div id="val-sigma" class="stat-val">- min</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">DP Amostra (<span style="font-family: serif; font-size: 1.2em;">s</span>)</div>
-                <div id="val-s" class="stat-val">- min</div>
+                <div class="stat-label">DP Pop. (<span style="font-family: serif;">σ</span>)</div>
+                <div id="p-sigma" class="stat-val">- min</div>
             </div>
             <div class="stat-card">
                 <div class="stat-label">Amostras (n)</div>
-                <div id="val-total" class="stat-val">0</div>
+                <div id="p-total" class="stat-val">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ESTATÍSTICAS: ACABOU -->
+    <div class="stats-box acabou-box" id="panel-acabou">
+        <h3 style="color: #e57373;">❌ Probabilidade: Acabar</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Média (<span style="font-family: serif;">μ</span>)</div>
+                <div id="a-mu" class="stat-val">--:--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Mediana</div>
+                <div id="a-mediana" class="stat-val">--:--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Moda</div>
+                <div id="a-moda" class="stat-val">--:--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">DP Pop. (<span style="font-family: serif;">σ</span>)</div>
+                <div id="a-sigma" class="stat-val">- min</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Amostras (n)</div>
+                <div id="a-total" class="stat-val">0</div>
             </div>
         </div>
     </div>
@@ -151,12 +183,11 @@
 </div>
 
 <script>
-    // ⚠️ SUBSTITUA PELO URL COPIADO DO SEU GOOGLE APPS SCRIPT ATUALIZADO
+    // ⚠️ SUBSTITUA PELO URL COPIADO DO SEU GOOGLE APPS SCRIPT
     const API_URL = "https://script.google.com/macros/s/AKfycbwQEP1QPSZ5SrKzPRqw5k-yDI4Junq0_Bx5KUe4Ry94VOjlNslWWx4aB2dEpdRFOBXA/exec";
     
     let chart;
 
-    // --- LÓGICA DE INTERFACE E STATUS ---
     function atualizarInterfaceDeStatus(status, hora) {
         const btnPronto = document.getElementById('btn-pronto');
         const btnAcabou = document.getElementById('btn-acabou');
@@ -177,11 +208,10 @@
             btnAcabou.style.display = "none";
             banner.style.display = "block";
             banner.className = "status-banner status-esgotado";
-            banner.innerHTML = `🛑 O pastel de hoje já acabou. Volte amanhã!`;
+            banner.innerHTML = `🛑 O pastel já acabou hoje. Volte amanhã!`;
         }
     }
 
-    // Converte minutos acumulados do dia de volta para o formato HH:MM
     function minutosParaHora(minutos) {
         if (minutos === undefined || minutos === null || isNaN(minutos)) return "--:--";
         let h = Math.floor(minutos / 60);
@@ -189,7 +219,6 @@
         return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     }
 
-    // Funções Estatísticas
     function calcularEstatisticas(array) {
         if (!array || array.length === 0) return null;
         let n = array.length;
@@ -212,18 +241,15 @@
         let modaStr = "--:--";
         if (maxFreq > 1) {
             let modas = Object.keys(freq).filter(k => freq[k] === maxFreq).map(Number);
-            modaStr = modas.map(m => minutosParaHora(m)).join(' e ');
+            modaStr = modas.map(m => minutosParaHora(m)).join(' / ');
         } else {
             modaStr = "Amodal";
         }
 
         let varianciaPop = array.reduce((a, b) => a + Math.pow(b - mu, 2), 0) / n;
         let sigma = Math.sqrt(varianciaPop);
-        
-        let varianciaAmostral = n > 1 ? array.reduce((a, b) => a + Math.pow(b - mu, 2), 0) / (n - 1) : 0;
-        let s = Math.sqrt(varianciaAmostral);
 
-        return { mu, mediana, modaStr, sigma, s, total: n };
+        return { mu, mediana, modaStr, sigma, total: n };
     }
 
     function funcaoNormal(x, mu, sigma) {
@@ -231,12 +257,14 @@
         return (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(expoente);
     }
 
-    function gerarPontosCurva(mu, sigma) {
+    function gerarPontosCurva(mu, sigma, overrideInicio, overrideFim) {
         let pontos = [];
         let sigmaGrafico = (!sigma || sigma === 0) ? 1 : sigma; 
+        
         let margem = Math.max(3 * sigmaGrafico, 60); 
-        let inicio = mu - margem;
-        let fim = mu + margem;
+        let inicio = overrideInicio || (mu - margem);
+        let fim = overrideFim || (mu + margem);
+        
         let passo = (fim - inicio) / 200;
 
         for (let x = inicio; x <= fim; x += passo) {
@@ -245,72 +273,106 @@
         return pontos;
     }
 
-    // Atualiza toda a Dashboard com o novo formato de payload da API
-    function atualizarDashboardCompleto(respostaAPI) {
-        if (!respostaAPI || !respostaAPI.historico) return;
+    function preencherHTMLStats(prefixo, statsObj) {
+        document.getElementById(`${prefixo}-mu`).innerText = statsObj ? `${minutosParaHora(statsObj.mu)}` : '--:--';
+        document.getElementById(`${prefixo}-mediana`).innerText = statsObj && statsObj.mediana ? minutosParaHora(statsObj.mediana) : '--:--';
+        document.getElementById(`${prefixo}-moda`).innerText = statsObj ? (statsObj.modaStr || '--:--') : '--:--';
+        document.getElementById(`${prefixo}-sigma`).innerText = statsObj && statsObj.sigma ? `${statsObj.sigma.toFixed(1)} min` : '- min';
+        document.getElementById(`${prefixo}-total`).innerText = statsObj ? statsObj.total : '0';
+    }
 
-        // 1. Atualiza Status e Botões
+    function atualizarDashboardCompleto(respostaAPI) {
+        if (!respostaAPI) return;
+
         atualizarInterfaceDeStatus(respostaAPI.statusHoje, respostaAPI.horaPronto);
 
-        // 2. Atualiza Estatísticas e Gráfico
-        let dadosEstatisticos = calcularEstatisticas(respostaAPI.historico);
-        if (!dadosEstatisticos) return;
+        let statsPronto = calcularEstatisticas(respostaAPI.historico);
+        let statsAcabou = calcularEstatisticas(respostaAPI.historicoAcabou);
 
-        document.getElementById('val-mu').innerText = `${minutosParaHora(dadosEstatisticos.mu)}`;
-        document.getElementById('val-mediana').innerText = dadosEstatisticos.mediana ? minutosParaHora(dadosEstatisticos.mediana) : '--:--';
-        document.getElementById('val-moda').innerText = dadosEstatisticos.modaStr || '--:--';
-        document.getElementById('val-sigma').innerText = dadosEstatisticos.sigma ? `${dadosEstatisticos.sigma.toFixed(1)} min` : '- min';
-        document.getElementById('val-s').innerText = dadosEstatisticos.s ? `${dadosEstatisticos.s.toFixed(1)} min` : '- min';
-        document.getElementById('val-total').innerText = dadosEstatisticos.total;
+        preencherHTMLStats('p', statsPronto);
+        preencherHTMLStats('a', statsAcabou);
 
-        const pontosCurva = gerarPontosCurva(dadosEstatisticos.mu, dadosEstatisticos.sigma);
+        // Prepara os dados para o gráfico (Curva Dupla)
+        let datasets = [];
         const ctx = document.getElementById('gaussChart').getContext('2d');
+        
+        // Determina o intervalo do Eixo X para as duas curvas se encontrarem no mesmo gráfico
+        let minX = 9999;
+        let maxX = 0;
+        
+        if (statsPronto) {
+            minX = Math.min(minX, statsPronto.mu - Math.max(3*(statsPronto.sigma||1), 60));
+            maxX = Math.max(maxX, statsPronto.mu + Math.max(3*(statsPronto.sigma||1), 60));
+        }
+        if (statsAcabou) {
+            minX = Math.min(minX, statsAcabou.mu - Math.max(3*(statsAcabou.sigma||1), 60));
+            maxX = Math.max(maxX, statsAcabou.mu + Math.max(3*(statsAcabou.sigma||1), 60));
+        }
 
-        let gradient = ctx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, 'rgba(255, 152, 0, 0.6)');
-        gradient.addColorStop(1, 'rgba(255, 152, 0, 0.0)');
+        if (statsPronto) {
+            let gradientP = ctx.createLinearGradient(0, 0, 0, 300);
+            gradientP.addColorStop(0, 'rgba(255, 152, 0, 0.6)');
+            gradientP.addColorStop(1, 'rgba(255, 152, 0, 0.0)');
+            
+            datasets.push({
+                label: 'Ficar Pronto',
+                data: gerarPontosCurva(statsPronto.mu, statsPronto.sigma, minX, maxX),
+                borderColor: '#ff9800',
+                backgroundColor: gradientP,
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 6
+            });
+        }
+
+        if (statsAcabou) {
+            let gradientA = ctx.createLinearGradient(0, 0, 0, 300);
+            gradientA.addColorStop(0, 'rgba(244, 67, 54, 0.6)');
+            gradientA.addColorStop(1, 'rgba(244, 67, 54, 0.0)');
+            
+            datasets.push({
+                label: 'Acabar',
+                data: gerarPontosCurva(statsAcabou.mu, statsAcabou.sigma, minX, maxX),
+                borderColor: '#f44336',
+                backgroundColor: gradientA,
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 6
+            });
+        }
 
         if (chart) chart.destroy();
 
         chart = new Chart(ctx, {
             type: 'line',
-            data: {
-                datasets: [{
-                    label: 'Densidade de Probabilidade',
-                    data: pontosCurva,
-                    borderColor: '#ff9800',
-                    backgroundColor: gradient,
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0,
-                    pointHoverRadius: 6
-                }]
-            },
+            data: { datasets: datasets },
             options: {
                 responsive: true,
                 interaction: { mode: 'index', intersect: false },
                 scales: {
                     x: {
                         type: 'linear',
-                        title: { display: true, text: 'Horário Previsto', color: '#888', font: { size: 14 } },
-                        ticks: {
-                            color: '#aaa',
-                            maxTicksLimit: 8,
-                            callback: function(value) { return minutosParaHora(value); }
-                        },
+                        title: { display: true, text: 'Horário do Dia', color: '#888', font: { size: 14 } },
+                        ticks: { color: '#aaa', maxTicksLimit: 8, callback: function(value) { return minutosParaHora(value); } },
                         grid: { color: 'rgba(255,255,255,0.05)' }
                     },
                     y: { display: false, min: 0 }
                 },
                 plugins: {
-                    legend: { display: false },
+                    legend: { display: true, labels: { color: '#e0e0e0', font: { size: 13 } } },
                     tooltip: {
                         backgroundColor: 'rgba(0,0,0,0.8)',
-                        titleColor: '#ff9800',
+                        titleColor: '#fff',
                         callbacks: {
                             title: function(context) { return 'Hora: ' + minutosParaHora(context[0].parsed.x); },
-                            label: function(context) { return 'Probabilidade: ' + (context.parsed.y * 100).toFixed(2) + '%'; }
+                            label: function(context) { 
+                                let c = context.dataset.borderColor;
+                                return context.dataset.label + ': ' + (context.parsed.y * 100).toFixed(2) + '%'; 
+                            }
                         }
                     }
                 }
@@ -318,57 +380,41 @@
         });
     }
 
-    // Faz consultas silenciosas para carregar dados
     async function carregarDados() {
         try {
             let res = await fetch(`${API_URL}?action=consultar`);
             let respostaAPI = await res.json(); 
             atualizarDashboardCompleto(respostaAPI);
         } catch (err) {
-            console.error("Erro ao conectar à API, exibindo fallback local.", err);
-            // Fallback simulado para preview se a API falhar
+            console.error("Erro ao contatar API. Mostrando fallback.", err);
+            // Fallback interativo para que possa ver o design no Editor
             atualizarDashboardCompleto({
-                historico: [1025, 976, 1045, 1031, 1019, 1047, 1044, 1042, 1024],
-                statusHoje: "aguardando",
-                horaPronto: ""
+                historico: [1025, 976, 1045, 1031, 1019, 1047, 1044, 1042, 1024, 1043],
+                historicoAcabou: [1050, 1000, 1070, 1055, 1040, 1080, 1072, 1060, 1050, 1065],
+                statusHoje: "disponivel",
+                horaPronto: "17:23"
             });
         }
     }
 
-    // Lida com cliques nos dois botões ("Pronto" ou "Acabou")
     async function acionarAPI(acao) {
         const btnPronto = document.getElementById('btn-pronto');
         const btnAcabou = document.getElementById('btn-acabou');
         const loading = document.getElementById('loading');
         
-        btnPronto.disabled = true;
-        btnAcabou.disabled = true;
+        if (btnPronto) btnPronto.disabled = true;
+        if (btnAcabou) btnAcabou.disabled = true;
         loading.style.display = 'block';
 
         try {
             let res = await fetch(`${API_URL}?action=${acao}`);
             let respostaAPI = await res.json(); 
-            
             atualizarDashboardCompleto(respostaAPI);
         } catch (err) {
-            alert("Erro ao comunicar com o servidor. Tente novamente.");
-            // Simulação puramente visual para o Preview do Editor:
-            if (acao === 'registrar_pronto') {
-                atualizarDashboardCompleto({
-                    historico: [1025, 976, 1045, 1031, 1019, 1047, 1044, 1042, 1024, 1020],
-                    statusHoje: "disponivel",
-                    horaPronto: "17:00"
-                });
-            } else {
-                atualizarDashboardCompleto({
-                    historico: [1025, 976, 1045, 1031, 1019, 1047, 1044, 1042, 1024, 1020],
-                    statusHoje: "esgotado",
-                    horaPronto: "17:00"
-                });
-            }
+            alert("Erro ao comunicar com o servidor do Google.");
         } finally {
-            btnPronto.disabled = false;
-            btnAcabou.disabled = false;
+            if (btnPronto) btnPronto.disabled = false;
+            if (btnAcabou) btnAcabou.disabled = false;
             loading.style.display = 'none';
         }
     }
