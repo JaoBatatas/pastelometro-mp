@@ -188,15 +188,27 @@
     
     let chart;
     let userIp = "0.0.0.0";
+    let userUid = "";
 
-    // Obtém o IP do usuário real de forma síncrona/inicial
+    // Gera um identificador exclusivo para este navegador se ele ainda não existir
+    function obterOuCriarUID() {
+        let uid = localStorage.getItem('pastel_uid');
+        if (!uid) {
+            // Cria uma assinatura única baseada em timestamp e caracteres aleatórios
+            uid = 'u_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
+            localStorage.setItem('pastel_uid', uid);
+        }
+        return uid;
+    }
+
+    // Obtém o IP público síncrono do dispositivo
     async function obterIP() {
         try {
             let resIp = await fetch('https://api.ipify.org?format=json');
             let dataIp = await resIp.json();
             userIp = dataIp.ip;
         } catch (e) {
-            console.error("Não foi possível obter o IP do usuário. Usando fallback.", e);
+            console.error("Não foi possível obter o IP externo do usuário. Usando fallback.", e);
         }
     }
 
@@ -304,7 +316,6 @@
         preencherHTMLStats('p', statsPronto);
         preencherHTMLStats('a', statsAcabou);
 
-        // Prepara os dados para o gráfico (Curva Dupla)
         let datasets = [];
         const ctx = document.getElementById('gaussChart').getContext('2d');
         
@@ -392,16 +403,19 @@
 
     async function carregarDados() {
         try {
-            await obterIP(); // Garante a busca do IP real antes de consultar a API
-            let res = await fetch(`${API_URL}?action=consultar&ip=${userIp}`);
+            userUid = obterOuCriarUID(); // Gera ou resgata o ID único persistente
+            await obterIP(); // Obtém o IP do Wi-Fi/Rede atual
+            
+            let res = await fetch(`${API_URL}?action=consultar&ip=${userIp}&uid=${userUid}`);
             let respostaAPI = await res.json(); 
 
-            // Se o usuário estiver na lista de banidos, bloqueia a tela inteira imediatamente
+            // Bloqueia se o IP ou o UID único estiver na lista negra
             if (respostaAPI.status === "bloqueado") {
                 document.body.innerHTML = `
-                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; text-align:center;">
-                        <h1 style="color:#f44336;">Acesso Negado 🛑</h1>
-                        <p style="color:#aaa; max-width:400px;">Seu endereço de IP foi bloqueado por mau uso ou envio de informações falsas no sistema.</p>
+                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; text-align:center; padding: 20px;">
+                        <h1 style="color:#f44336; margin-bottom:10px;">Acesso Negado 🛑</h1>
+                        <p style="color:#aaa; max-width:400px; line-height:1.5;">Seu dispositivo foi suspenso por atividade inadequada ou envio de informações falsas no sistema.</p>
+                        <small style="color:#555; margin-top: 15px;">ID do dispositivo: ${userUid}</small>
                     </div>`;
                 return;
             }
@@ -428,8 +442,8 @@
         loading.style.display = 'block';
 
         try {
-            // Agora sim passa o IP de forma 100% dinâmica e segura!
-            let res = await fetch(`${API_URL}?action=${acao}&ip=${userIp}`);
+            // Passa o IP e o identificador único na chamada da ação
+            let res = await fetch(`${API_URL}?action=${acao}&ip=${userIp}&uid=${userUid}`);
             let respostaAPI = await res.json(); 
 
             if (respostaAPI.status === "bloqueado") {

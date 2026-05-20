@@ -3,26 +3,28 @@ function doGet(e) {
   var sheetDados = ss.getSheetByName("Dados");
   var sheetBloqueados = ss.getSheetByName("Bloqueados");
   
-  // Cria automaticamente a aba de Bloqueados se o usuário esquecer de criar
+  // Cria automaticamente a aba de Bloqueados se ela não existir
   if (!sheetBloqueados) {
     sheetBloqueados = ss.insertSheet("Bloqueados");
-    sheetBloqueados.appendRow(["IP"]);
+    sheetBloqueados.appendRow(["Identificador (IP ou UID)"]);
   }
   
-  // Captura o IP do usuário enviado pelo frontend
+  // Captura os dados de identificação enviados pelo frontend
   var userIp = e.parameter.ip || "0.0.0.0";
+  var userUid = e.parameter.uid || "anonimo";
   
-  // Verifica se o IP está na lista de bloqueados (evita erro caso a tabela esteja vazia)
+  // Verifica se o IP ou o UID do usuário estão na lista negra
   var bloqueado = false;
   var lastRowBloqueados = sheetBloqueados.getLastRow();
   if (lastRowBloqueados > 1) {
     var listaBloqueados = sheetBloqueados.getRange(2, 1, lastRowBloqueados - 1, 1).getValues();
     bloqueado = listaBloqueados.some(function(row) { 
-      return String(row[0]).trim() === String(userIp).trim(); 
+      var itemBloqueado = String(row[0]).trim();
+      return itemBloqueado === String(userIp).trim() || itemBloqueado === String(userUid).trim(); 
     });
   }
   
-  // Se o usuário estiver bloqueado, recusa a requisição imediatamente
+  // Bloqueio imediato caso detectado na lista negra
   if (bloqueado) {
     return ContentService.createTextOutput(JSON.stringify({ status: "bloqueado", mensagem: "Acesso negado." }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -35,8 +37,8 @@ function doGet(e) {
   var horaFormatada = Utilities.formatDate(agora, "America/Sao_Paulo", "HH:mm");
   
   var ultimaLinha = sheetDados.getLastRow();
-  // Captura até a coluna F (índice 6) para ler todas as informações
-  var dadosUltimaLinha = ultimaLinha > 1 ? sheetDados.getRange(ultimaLinha, 1, 1, 6).getValues()[0] : ["", "", "", "", "", ""];
+  // Lemos até a coluna H (8 colunas) para capturar os novos logs de UID
+  var dadosUltimaLinha = ultimaLinha > 1 ? sheetDados.getRange(ultimaLinha, 1, 1, 8).getValues()[0] : ["", "", "", "", "", "", "", ""];
   
   function formatarDataPlanilha(d) {
     if (!d) return "";
@@ -61,11 +63,12 @@ function doGet(e) {
   if (action === "registrar_pronto") {
     if (dataUltimoRegistro !== dataHoje) {
       var horas = agora.getHours();
-      var minutos = agora.getMinutes();
-      var minutosDoDia = (horas * 60) + minutos;
+      var minutes = agora.getMinutes();
+      var minutosDoDia = (horas * 60) + minutes;
       
-      // Salva: Data, Hora, Minutos, Hora_Acabou (vazio), IP_Pronto (userIp), IP_Acabou (vazio)
-      sheetDados.appendRow([dataHoje, horaFormatada, minutosDoDia, "", userIp, ""]);
+      // Nova estrutura de colunas:
+      // A: Data | B: Hora | C: Minutos | D: Hora_Acabou | E: IP_Pronto | F: IP_Acabou | G: UID_Pronto | H: UID_Acabou
+      sheetDados.appendRow([dataHoje, horaFormatada, minutosDoDia, "", userIp, "", userUid, ""]);
       
       ultimaLinha = sheetDados.getLastRow();
       dataUltimoRegistro = dataHoje;
@@ -76,16 +79,15 @@ function doGet(e) {
   // 2. AÇÃO: Registrar que o pastel ACABOU
   if (action === "registrar_acabou") {
     if (dataUltimoRegistro === dataHoje && horaAcabouUltimo === "") {
-      // Registra a hora que acabou na coluna D (4)
-      sheetDados.getRange(ultimaLinha, 4).setValue(horaFormatada);
-      // Registra o IP de quem marcou na coluna F (6)
-      sheetDados.getRange(ultimaLinha, 6).setValue(userIp);
+      sheetDados.getRange(ultimaLinha, 4).setValue(horaFormatada); // Coluna D
+      sheetDados.getRange(ultimaLinha, 6).setValue(userIp);        // Coluna F
+      sheetDados.getRange(ultimaLinha, 8).setValue(userUid);       // Coluna H (UID de quem encerrou)
       SpreadsheetApp.flush(); 
       horaAcabouUltimo = horaFormatada; 
     }
   }
   
-  // 3. CONSULTA: Gera estatísticas e monta as curvas de Gauss
+  // 3. CONSULTA: Lê os dados históricos para as estatísticas
   var dados = sheetDados.getDataRange().getValues();
   var listaMinutosPronto = [];
   var listaMinutosAcabou = [];
@@ -93,11 +95,9 @@ function doGet(e) {
   var horaProntoHoje = "";
 
   for (var i = 1; i < dados.length; i++) {
-    // Coleta coluna C (Minutos Pronto)
     if (dados[i][2] !== "") {
       listaMinutosPronto.push(Number(dados[i][2]));
     }
-    // Coleta coluna D (Hora Acabou) e converte para minutos
     var horaAcabouStr = formatarHoraPlanilha(dados[i][3]);
     if (horaAcabouStr !== "") {
        var partes = horaAcabouStr.split(':');
